@@ -1,39 +1,31 @@
+import sys
+sys.path.append("..")
 import unittest
 from unittest.mock import MagicMock
 from limit.limit_order_agent import LimitOrderAgent
 
-class LimitOrderAgentTest(unittest.TestCase):
-
+class TestLimitOrderAgent(unittest.TestCase):
     def setUp(self):
-        self.mock_execution_client = MagicMock()
-        self.agent = LimitOrderAgent(self.mock_execution_client)
+        self.execution_client = MagicMock()
+        self.agent = LimitOrderAgent(self.execution_client)
 
-    def test_buy_ibm_when_price_drops(self):
-        # Simulate IBM price tick
-        self.agent.price_tick("IBM", 99)
-        
-        # Check if an order was placed
-        self.mock_execution_client.execute_order.assert_called_once_with("BUY", "IBM", 1000)
+    def test_buy_order_executes(self):
+        self.agent.add_order('TATA', 'buy', 1000, 100)
+        self.agent.on_price_tick('TATA', 99)  # Price drops below $100
 
-    def test_add_order_and_execute(self):
-        # Add a custom buy order for Apple when price <= 150
-        self.agent.add_order("BUY", "AAPL", 50, 150)
-        
-        # Simulate price tick
-        self.agent.price_tick("AAPL", 149)
-        
-        # Check if the order was executed
-        self.mock_execution_client.execute_order.assert_called_once_with("BUY", "AAPL", 50)
+        self.execution_client.buy.assert_called_with('IBM', amount=1000)
 
-    def test_no_order_execution_if_conditions_not_met(self):
-        # Add a custom sell order for Google at a higher price
-        self.agent.add_order("SELL", "GOOGL", 20, 3000)
-        
-        # Simulate a price tick that's below the limit
-        self.agent.price_tick("GOOGL", 2999)
-        
-        # Check if the order was NOT executed
-        self.mock_execution_client.execute_order.assert_not_called()
+    def test_sell_order_executes(self):
+        self.agent.add_order('RELIANCE', 'sell', 500, 150)
+        self.agent.price_tick('RELIANCE', 151)  # Price rises above $150
 
-if __name__ == "__main__":
+        self.execution_client.sell.assert_called_with('RELIANCE', 500)
+
+    def test_order_not_executed_if_price_is_not_met(self):
+        self.agent.add_order('IBM', 'buy', 1000, 100)
+        self.agent.price_tick('IBM', 101)  # Price does not drop below $100
+
+        self.execution_client.buy.assert_not_called()
+
+if __name__ == '__main__':
     unittest.main()
